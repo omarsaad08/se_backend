@@ -1,0 +1,47 @@
+<?php
+// CORS Headers
+header("Access-Control-Allow-Origin: *");
+header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Max-Age: 3600");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Origin, Accept");
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+include_once 'config/Database.php';
+include_once 'models/NdviData.php';
+include_once 'controllers/NdviController.php';
+
+$request_method = $_SERVER["REQUEST_METHOD"];
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$path_segments = explode('/', trim($path, '/'));
+
+$controller = new NdviController();
+
+switch($request_method) {
+    case 'GET':
+        $controller->handleGet();
+        break;
+    
+    case 'POST':
+        $controller->handlePost();
+        break;
+    
+    case 'PUT':
+        $controller->handlePut();
+        break;
+    
+    case 'DELETE':
+        $controller->handleDelete();
+        break;
+    
+    default:
+        http_response_code(405);
+        echo json_encode(array("message" => "Method not allowed"));
+        break;
+}
+?>
