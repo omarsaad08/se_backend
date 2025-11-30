@@ -1,15 +1,15 @@
 <?php
-class NdviController {
+class EnvironmentalDataController {
     private $db;
-    private $ndviData;
+    private $envData;
 
     public function __construct() {
         $database = new Database();
         $this->db = $database->getConnection();
-        $this->ndviData = new NdviData($this->db);
+        $this->envData = new EnvironmentalData($this->db);
     }
 
-    // GET - Get all NDVI data or specific records
+    // GET - Get all environmental data or specific records
     public function handleGet() {
         if(isset($_GET['area_id'])) {
             $this->getByArea($_GET['area_id']);
@@ -22,174 +22,251 @@ class NdviController {
         }
     }
 
-    // Get all NDVI records
-    public function getAll() {
-        $stmt = $this->ndviData->read();
-        $num = $stmt->rowCount();
-
-        if($num > 0) {
-            $ndvi_arr = array();
-            $ndvi_arr["data"] = array();
-
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                extract($row);
-                $ndvi_item = array(
-                    "id" => $id,
-                    "avg_ndvi" => (float)$avg_ndvi,
-                    "season" => $season,
-                    "year" => (int)$year,
-                    "area_id" => (int)$area_id
-                );
-                array_push($ndvi_arr["data"], $ndvi_item);
-            }
-            http_response_code(200);
-            echo json_encode($ndvi_arr);
-        } else {
-            http_response_code(404);
-            echo json_encode(array("message" => "No NDVI data found."));
-        }
-    }
-
-    // Get NDVI record by ID
-    public function getById($id) {
-        $this->ndviData->id = $id;
+    // Filter single feature from result array
+    private function filterFeature($data, $feature) {
+        $valid_features = array('ndvi', 'evi', 'ndwi', 'temp');
         
-        if($this->ndviData->readOne()) {
-            $ndvi_item = array(
-                "id" => $this->ndviData->id,
-                "avg_ndvi" => (float)$this->ndviData->avg_ndvi,
-                "season" => $this->ndviData->season,
-                "year" => (int)$this->ndviData->year,
-                "area_id" => (int)$this->ndviData->area_id
+        if(!in_array($feature, $valid_features)) {
+            http_response_code(400);
+            echo json_encode(array("message" => "Invalid feature. Valid features: " . implode(", ", $valid_features)));
+            return;
+        }
+
+        if(isset($data["data"])) {
+            foreach($data["data"] as &$item) {
+                $feature_value = $item[$feature];
+                $item = array(
+                    "id" => $item["id"],
+                    "area_id" => $item["area_id"],
+                    "year" => $item["year"],
+                    "season" => $item["season"],
+                    $feature => $feature_value
+                );
+            }
+        } else {
+            $feature_value = $data[$feature];
+            $data = array(
+                "id" => $data["id"],
+                "area_id" => $data["area_id"],
+                "year" => $data["year"],
+                "season" => $data["season"],
+                $feature => $feature_value
             );
+        }
+        
+        return $data;
+    }
+
+    // Get all environmental records
+    public function getAll() {
+        $stmt = $this->envData->read();
+        $num = $stmt->rowCount();
+
+        if($num > 0) {
+            $env_arr = array();
+            $env_arr["data"] = array();
+
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                extract($row);
+                $env_item = array(
+                    "id" => $id,
+                    "area_id" => (int)$area_id,
+                    "year" => (int)$year,
+                    "season" => $season,
+                    "ndvi" => (float)$ndvi,
+                    "evi" => (float)$evi,
+                    "ndwi" => (float)$ndwi,
+                    "temp" => (float)$temp
+                );
+                array_push($env_arr["data"], $env_item);
+            }
+            
+            // Filter by feature if requested
+            if(isset($_GET['feature'])) {
+                $env_arr = $this->filterFeature($env_arr, $_GET['feature']);
+            }
+            
             http_response_code(200);
-            echo json_encode($ndvi_item);
+            echo json_encode($env_arr);
         } else {
             http_response_code(404);
-            echo json_encode(array("message" => "NDVI data not found."));
+            echo json_encode(array("message" => "No environmental data found."));
         }
     }
 
-    // Get NDVI data by area_id
+    // Get environmental record by ID
+    public function getById($id) {
+        $this->envData->id = $id;
+        
+        if($this->envData->readOne()) {
+            $env_item = array(
+                "id" => $this->envData->id,
+                "area_id" => (int)$this->envData->area_id,
+                "year" => (int)$this->envData->year,
+                "season" => $this->envData->season,
+                "ndvi" => (float)$this->envData->ndvi,
+                "evi" => (float)$this->envData->evi,
+                "ndwi" => (float)$this->envData->ndwi,
+                "temp" => (float)$this->envData->temp
+            );
+            
+            // Filter by feature if requested
+            if(isset($_GET['feature'])) {
+                $env_item = $this->filterFeature($env_item, $_GET['feature']);
+            }
+            
+            http_response_code(200);
+            echo json_encode($env_item);
+        } else {
+            http_response_code(404);
+            echo json_encode(array("message" => "Environmental data not found."));
+        }
+    }
+
+    // Get environmental data by area_id
     public function getByArea($area_id) {
-        $stmt = $this->ndviData->readByArea($area_id);
+        $stmt = $this->envData->readByArea($area_id);
         $num = $stmt->rowCount();
 
         if($num > 0) {
-            $ndvi_arr = array();
-            $ndvi_arr["data"] = array();
+            $env_arr = array();
+            $env_arr["data"] = array();
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 extract($row);
-                $ndvi_item = array(
+                $env_item = array(
                     "id" => $id,
-                    "avg_ndvi" => (float)$avg_ndvi,
-                    "season" => $season,
+                    "area_id" => (int)$area_id,
                     "year" => (int)$year,
-                    "area_id" => (int)$area_id
+                    "season" => $season,
+                    "ndvi" => (float)$ndvi,
+                    "evi" => (float)$evi,
+                    "ndwi" => (float)$ndwi,
+                    "temp" => (float)$temp
                 );
-                array_push($ndvi_arr["data"], $ndvi_item);
+                array_push($env_arr["data"], $env_item);
             }
+            
+            // Filter by feature if requested
+            if(isset($_GET['feature'])) {
+                $env_arr = $this->filterFeature($env_arr, $_GET['feature']);
+            }
+            
             http_response_code(200);
-            echo json_encode($ndvi_arr);
+            echo json_encode($env_arr);
         } else {
             http_response_code(404);
-            echo json_encode(array("message" => "No NDVI data found for area ID: " . $area_id));
+            echo json_encode(array("message" => "No environmental data found for area ID: " . $area_id));
         }
     }
 
-    // Get NDVI data by year and season
+    // Get environmental data by year and season
     public function getByYearSeason($year, $season) {
-        $stmt = $this->ndviData->readByYearSeason($year, $season);
+        $stmt = $this->envData->readByYearSeason($year, $season);
         $num = $stmt->rowCount();
 
         if($num > 0) {
-            $ndvi_arr = array();
-            $ndvi_arr["data"] = array();
+            $env_arr = array();
+            $env_arr["data"] = array();
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 extract($row);
-                $ndvi_item = array(
+                $env_item = array(
                     "id" => $id,
-                    "avg_ndvi" => (float)$avg_ndvi,
-                    "season" => $season,
+                    "area_id" => (int)$area_id,
                     "year" => (int)$year,
-                    "area_id" => (int)$area_id
+                    "season" => $season,
+                    "ndvi" => (float)$ndvi,
+                    "evi" => (float)$evi,
+                    "ndwi" => (float)$ndwi,
+                    "temp" => (float)$temp
                 );
-                array_push($ndvi_arr["data"], $ndvi_item);
+                array_push($env_arr["data"], $env_item);
             }
+            
+            // Filter by feature if requested
+            if(isset($_GET['feature'])) {
+                $env_arr = $this->filterFeature($env_arr, $_GET['feature']);
+            }
+            
             http_response_code(200);
-            echo json_encode($ndvi_arr);
+            echo json_encode($env_arr);
         } else {
             http_response_code(404);
-            echo json_encode(array("message" => "No NDVI data found for " . $season . " " . $year));
+            echo json_encode(array("message" => "No environmental data found for " . $season . " " . $year));
         }
     }
 
-    // POST - Create new NDVI record
+    // POST - Create new environmental record
     // public function handlePost() {
     //     $data = json_decode(file_get_contents("php://input"));
 
-    //     if(!empty($data->avg_ndvi) && !empty($data->season) && !empty($data->year) && !empty($data->area_id)) {
-    //         $this->ndviData->avg_ndvi = $data->avg_ndvi;
-    //         $this->ndviData->season = $data->season;
-    //         $this->ndviData->year = $data->year;
-    //         $this->ndviData->area_id = $data->area_id;
+    //     if(!empty($data->area_id) && !empty($data->year) && !empty($data->season) && !empty($data->ndvi) && !empty($data->evi) && !empty($data->ndwi) && !empty($data->temp)) {
+    //         $this->envData->area_id = $data->area_id;
+    //         $this->envData->year = $data->year;
+    //         $this->envData->season = $data->season;
+    //         $this->envData->ndvi = $data->ndvi;
+    //         $this->envData->evi = $data->evi;
+    //         $this->envData->ndwi = $data->ndwi;
+    //         $this->envData->temp = $data->temp;
 
-    //         if($this->ndviData->create()) {
+    //         if($this->envData->create()) {
     //             http_response_code(201);
-    //             echo json_encode(array("message" => "NDVI record was created."));
+    //             echo json_encode(array("message" => "Environmental record was created."));
     //         } else {
     //             http_response_code(503);
-    //             echo json_encode(array("message" => "Unable to create NDVI record."));
+    //             echo json_encode(array("message" => "Unable to create environmental record."));
     //         }
     //     } else {
     //         http_response_code(400);
-    //         echo json_encode(array("message" => "Unable to create NDVI record. Data is incomplete."));
+    //         echo json_encode(array("message" => "Unable to create environmental record. Data is incomplete."));
     //     }
     // }
 
-    // // PUT - Update NDVI record
+    // // PUT - Update environmental record
     // public function handlePut() {
     //     $data = json_decode(file_get_contents("php://input"));
 
-    //     if(!empty($data->id) && !empty($data->avg_ndvi) && !empty($data->season) && !empty($data->year) && !empty($data->area_id)) {
-    //         $this->ndviData->id = $data->id;
-    //         $this->ndviData->avg_ndvi = $data->avg_ndvi;
-    //         $this->ndviData->season = $data->season;
-    //         $this->ndviData->year = $data->year;
-    //         $this->ndviData->area_id = $data->area_id;
+    //     if(!empty($data->id) && !empty($data->area_id) && !empty($data->year) && !empty($data->season) && !empty($data->ndvi) && !empty($data->evi) && !empty($data->ndwi) && !empty($data->temp)) {
+    //         $this->envData->id = $data->id;
+    //         $this->envData->area_id = $data->area_id;
+    //         $this->envData->year = $data->year;
+    //         $this->envData->season = $data->season;
+    //         $this->envData->ndvi = $data->ndvi;
+    //         $this->envData->evi = $data->evi;
+    //         $this->envData->ndwi = $data->ndwi;
+    //         $this->envData->temp = $data->temp;
 
-    //         if($this->ndviData->update()) {
+    //         if($this->envData->update()) {
     //             http_response_code(200);
-    //             echo json_encode(array("message" => "NDVI record was updated."));
+    //             echo json_encode(array("message" => "Environmental record was updated."));
     //         } else {
     //             http_response_code(503);
-    //             echo json_encode(array("message" => "Unable to update NDVI record."));
+    //             echo json_encode(array("message" => "Unable to update environmental record."));
     //         }
     //     } else {
     //         http_response_code(400);
-    //         echo json_encode(array("message" => "Unable to update NDVI record. Data is incomplete."));
+    //         echo json_encode(array("message" => "Unable to update environmental record. Data is incomplete."));
     //     }
     // }
 
-    // // DELETE - Delete NDVI record
+    // // DELETE - Delete environmental record
     // public function handleDelete() {
     //     $data = json_decode(file_get_contents("php://input"));
 
     //     if(!empty($data->id)) {
-    //         $this->ndviData->id = $data->id;
+    //         $this->envData->id = $data->id;
 
-    //         if($this->ndviData->delete()) {
+    //         if($this->envData->delete()) {
     //             http_response_code(200);
-    //             echo json_encode(array("message" => "NDVI record was deleted."));
+    //             echo json_encode(array("message" => "Environmental record was deleted."));
     //         } else {
     //             http_response_code(503);
-    //             echo json_encode(array("message" => "Unable to delete NDVI record."));
+    //             echo json_encode(array("message" => "Unable to delete environmental record."));
     //         }
     //     } else {
     //         http_response_code(400);
-    //         echo json_encode(array("message" => "Unable to delete NDVI record. ID is missing."));
+    //         echo json_encode(array("message" => "Unable to delete environmental record. ID is missing."));
     //     }
     // }
 }

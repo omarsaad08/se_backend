@@ -1,16 +1,19 @@
-CREATE TABLE ndvi_data (
+CREATE TABLE environmental_data (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    avg_ndvi DOUBLE,
-    season VARCHAR(20),
+    area_id INT,
     year INT,
-    area_id INT
+    season VARCHAR(20),
+    ndvi DOUBLE,
+    evi DOUBLE,
+    ndwi DOUBLE,
+    temp DOUBLE
 );
 
 -- Load data from CSV
-LOAD DATA INFILE 'NDVI_processed4.csv'
-INTO TABLE ndvi_data
+LOAD DATA INFILE 'merged_environmental_data.csv'
+INTO TABLE environmental_data
 FIELDS TERMINATED BY ',' 
 ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
 IGNORE 1 ROWS
-(avg_ndvi, season, year, area_id);
+(area_id, year, season, ndvi, evi, ndwi, temp);

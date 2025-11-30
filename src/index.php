@@ -1,13 +1,10 @@
 <?php
-// CORS Headers
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: *");
+// Set content type for all responses
+header("Content-Type: application/json; charset=UTF-8");
 
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-    http_response_code(200);
+// Handle preflight OPTIONS request silently
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
     exit();
 }
 
@@ -16,10 +13,9 @@ include_once 'models/NdviData.php';
 include_once 'controllers/NdviController.php';
 
 $request_method = $_SERVER["REQUEST_METHOD"];
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$path_segments = explode('/', trim($path, '/'));
 
-$controller = new NdviController();
+// Route to NdviController for all requests
+$controller = new EnvironmentalDataController();
 
 switch($request_method) {
     case 'GET':
