@@ -17,8 +17,22 @@ services:
       - ./src:/var/www/html
     networks:
       - app-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - mysql
+
+  # python service removed to run locally
+  # python:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.python
+  #   volumes:
+  #     - ./src:/app/src
+  #   ports:
+  #     - "5000:5000"
+  #   networks:
+  #     - app-network
 
   mysql:
     image: mysql:8.0

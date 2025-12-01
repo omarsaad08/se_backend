@@ -45,13 +45,14 @@ def predict(metric):
 @app.route("/predict-batch", methods=["POST"])
 def predict_batch():
     """
-    Predict for all areas in one year/season for all metrics
+    Predict for all areas in one year/season for a specific metric
     Expects JSON: {
         "year_scaled": float,
         "area_ids_scaled": [float, float, ...],
-        "season": "autumn|spring|summer|winter"
+        "season": "autumn|spring|summer|winter",
+        "metric": "ndvi|evi|ndwi|temp"
     }
-    Returns predictions for all metrics and all areas
+    Returns predictions for the specified metric for all areas
     """
     try:
         if not models:
@@ -60,15 +61,20 @@ def predict_batch():
         data = request.json
         
         # Validate required fields
-        if not data or "year_scaled" not in data or "area_ids_scaled" not in data or "season" not in data:
-            return jsonify({"error": "Missing required fields: year_scaled, area_ids_scaled, season"}), 400
+        if not data or "year_scaled" not in data or "area_ids_scaled" not in data or "season" not in data or "metric" not in data:
+            return jsonify({"error": "Missing required fields: year_scaled, area_ids_scaled, season, metric"}), 400
         
         year_scaled = float(data["year_scaled"])
         area_ids_scaled = [float(x) for x in data["area_ids_scaled"]]
         season = data["season"].lower()
+        metric = data["metric"].lower()
         
-        print(f"📊 Batch prediction request: year_scaled={year_scaled}, num_areas={len(area_ids_scaled)}, season={season}")
+        print(f"📊 Batch prediction request: metric={metric}, year_scaled={year_scaled}, num_areas={len(area_ids_scaled)}, season={season}")
         
+        # Validate metric
+        if metric not in models:
+            return jsonify({"error": f"Invalid metric. Available: {list(models.keys())}"}), 400
+
         # Validate season
         valid_seasons = ["autumn", "spring", "summer", "winter"]
         if season not in valid_seasons:
@@ -90,30 +96,30 @@ def predict_batch():
             features_list.append(feature_row)
         
         features_array = np.array(features_list)
-        print(f"✅ Feature array shape: {features_array.shape}")
         
-        # Get predictions for all metrics
+        # Get predictions for the specific metric
         predictions = {
             "year_scaled": year_scaled,
             "season": season,
+            "metric": metric,
             "area_predictions": []
         }
         
-        for idx, area_id_scaled in enumerate(area_ids_scaled):
-            area_pred = {
-                "area_id_scaled": area_id_scaled,
-                "predictions": {}
-            }
+        try:
+            # Predict in batch for efficiency if model supports it (sklearn does)
+            # shape: (n_samples, n_features)
+            pred_values = models[metric].predict(features_array)
             
-            for metric, model in models.items():
-                try:
-                    pred_value = model.predict(features_array[idx:idx+1])
-                    area_pred["predictions"][metric] = float(pred_value[0])
-                except Exception as e:
-                    print(f"❌ Error predicting {metric} for area {idx}: {e}")
-                    return jsonify({"error": f"Error predicting {metric}: {str(e)}"}), 500
-            
-            predictions["area_predictions"].append(area_pred)
+            for idx, area_id_scaled in enumerate(area_ids_scaled):
+                area_pred = {
+                    "area_id_scaled": area_id_scaled,
+                    "prediction": float(pred_values[idx])
+                }
+                predictions["area_predictions"].append(area_pred)
+                
+        except Exception as e:
+            print(f"❌ Error predicting {metric}: {e}")
+            return jsonify({"error": f"Error predicting {metric}: {str(e)}"}), 500
         
         print(f"✅ Predictions completed successfully: {len(predictions['area_predictions'])} areas")
         return jsonify(predictions), 200

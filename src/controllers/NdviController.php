@@ -269,5 +269,21 @@ class EnvironmentalDataController {
     //         echo json_encode(array("message" => "Unable to delete environmental record. ID is missing."));
     //     }
     // }
+
+    // Stub methods for POST, PUT, DELETE (not currently implemented)
+    public function handlePost() {
+        http_response_code(501);
+        echo json_encode(array("message" => "POST method not implemented"));
+    }
+
+    public function handlePut() {
+        http_response_code(501);
+        echo json_encode(array("message" => "PUT method not implemented"));
+    }
+
+    public function handleDelete() {
+        http_response_code(501);
+        echo json_encode(array("message" => "DELETE method not implemented"));
+    }
 }
 ?>
