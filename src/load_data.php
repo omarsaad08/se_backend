@@ -4,6 +4,11 @@ include_once 'config/Database.php';
 function loadCSVData() {
     $database = new Database();
     $conn = $database->getConnection();
+
+    if ($conn === null) {
+        echo "Failed to connect to the database. Exiting.\n";
+        return false;
+    }
     
     try {
         // Create table if it doesn't exist
